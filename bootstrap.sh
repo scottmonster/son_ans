@@ -119,9 +119,8 @@ ensure_sudo(){
   if [[ -n "$to_run" ]]; then
     echo "Attempting to setup sudo"
     echo "Enter the root password:"
-    su -l -c "bash -c '${to_run}'"|| {
+    su -l -c "bash -c '${to_run}'" < /dev/tty || {
       echo "Failed to configure sudo."
-      echo "Check the logs in $PWD/$SAFETY_LOG for more details."
       exit 1
     }
     # exec sg sudo -c "$0 $*"
