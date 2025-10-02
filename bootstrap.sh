@@ -1,11 +1,11 @@
 #!/bin/bash
 # Bootstrap script for qyksys system provisioning
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
-VERSION="1"
-DEBUG=true
+
 
 set -euo pipefail
-
+VERSION="1"
+DEBUG=true
 
 if [[ -n "${DEBUG:-}" ]]; then
   echo "turning on debug"
