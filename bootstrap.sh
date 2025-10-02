@@ -2,7 +2,7 @@
 # Bootstrap script for qyksys system provisioning
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 
-VERSION="1"
+VERSION="2"
 DEBUG=true
 
 set -euo pipefail
@@ -159,15 +159,33 @@ EOF
 
         chmod +x "$root_script"
         
-        # Execute the script as root
-        if su -c "ORIGINAL_USER='$ORIGINAL_USER' '$root_script'" root; then
+        # Temporarily disable xtrace for password input
+        local xtrace_was_set=false
+        if [[ $- == *x* ]]; then
+            xtrace_was_set=true
+            set +x
+        fi
+        
+        # Execute the script as root with proper interactive terminal
+        log_info "Switching to root for package installation..."
+        if su -c "ORIGINAL_USER='$ORIGINAL_USER' '$root_script'" root < /dev/tty; then
             log_success "Packages installed successfully"
             log_info "User $ORIGINAL_USER has been added to sudo group"
             log_warning "Note: You may need to log out and back in for sudo group membership to take effect"
+            
+            # Re-enable xtrace if it was set
+            if [[ "$xtrace_was_set" == "true" ]]; then
+                set -x
+            fi
             return 0
         else
             log_error "Failed to install packages as root"
             rm -f "$root_script"
+            
+            # Re-enable xtrace if it was set
+            if [[ "$xtrace_was_set" == "true" ]]; then
+                set -x
+            fi
             exit 1
         fi
     fi
