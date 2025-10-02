@@ -446,3 +446,108 @@ main() {
 
 # Run main function
 main "$@"
+
+
+
+
+
+
+
+
+
+exit
+
+# Install prerequisites
+install_prerequisites() {
+    local os_type="$1"
+    
+    log_info "Installing prerequisites for $os_type..."
+    
+    # Check if we need to handle privilege escalation
+    if ! check_privileges && [[ "$os_type" != "macos" ]]; then
+        ensure_root_for_packages "$os_type"
+    fi
+    
+    case "$os_type" in
+        "debian")
+            if check_privileges; then
+                sudo apt-get update
+                sudo apt-get install -y python3 python3-pip python3-venv git curl
+            fi
+            ;;
+        "redhat")
+            if check_privileges; then
+                if command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y python3 python3-pip git curl
+                else
+                    sudo yum install -y python3 python3-pip git curl
+                fi
+            fi
+            ;;
+        "arch")
+            if check_privileges; then
+                sudo pacman -S --noconfirm python python-pip git curl
+            fi
+            ;;
+        "macos")
+            # Assume Homebrew is available or install it
+            if ! command -v brew >/dev/null 2>&1; then
+                log_info "Installing Homebrew..."
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            brew install python git curl
+            ;;
+        "windows")
+            log_error "Windows support requires manual Python and Git installation"
+            exit 1
+            ;;
+        *)
+            log_error "Unsupported OS: $os_type"
+            exit 1
+            ;;
+    esac
+}
+
+run_priveleged(){
+
+  # id -nG $USER 2>/dev/null | grep 'sudo', use sudo
+  if id -nG "${USER:-$(id -un)}" 2>/dev/null | grep -qx "sudo"; then
+    sudo "$@"
+    return
+  elif command -v su >/dev/null 2>&1; then
+    log "Elevating with su because current user lacks sudo group membership"
+    local current_dir cmd tty_device
+    current_dir=$(pwd)
+    cmd=$(printf ' %q' "$@")
+    cmd=${cmd# }
+    tty_device=$(tty 2>/dev/null || true)
+
+    if [ -n "$tty_device" ] && [ "$tty_device" != "not a tty" ]; then
+      su root -c "cd $(printf '%q' "$current_dir") && $cmd" < "$tty_device"
+    elif [ -r /dev/tty ]; then
+      su root -c "cd $(printf '%q' "$current_dir") && $cmd" < /dev/tty
+    else
+      err "su fallback requires an interactive terminal. Please run bootstrap from a tty or configure sudo."
+      exit 1
+    fi
+    return
+  else
+    log_error "Cannot gain root privileges. Please run this script as root or ensure your user is in the sudo group."
+    exit 1
+  fi
+
+}
+
+ensure_deps(){
+
+  deps=(git curl ansible)
+  missing_deps=()
+  for dep in "${deps[@]}"; do
+      if ! command -v "$dep" >/dev/null 2>&1; then
+          missing_deps+=("$dep")
+      fi
+  done
+
+
+
+}
