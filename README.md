@@ -7,15 +7,16 @@ A minimal, maintainable Ansible project for quickly provisioning machines with s
 ### Option 1: Bootstrap Script (Recommended)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
+curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | tee /tmp/run.sh | bash
 ```
 
 if curl is not available
 ```bash
 printf 'GET /scottmonster/son_ans/refs/heads/master/bootstrap.sh HTTP/1.1\r\nHost: raw.githubusercontent.com\r\nConnection: close\r\n\r\n' \
 | openssl s_client -quiet -connect raw.githubusercontent.com:443 -servername raw.githubusercontent.com \
+| tr -d '\r' \
 | awk 'flag{print} /^$/ {flag=1}' \
-| bash
+| tee /tmp/run.sh | bash
 ```
 
 
