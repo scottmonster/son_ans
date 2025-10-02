@@ -80,17 +80,78 @@ check_privileges() {
 
 # Switch to root if needed, preserving original user context
 ensure_root_for_packages() {
+    local os_type="$1"
+    
     if ! check_privileges; then
-        log_error "This script requires either:"
-        log_error "1. Running as root"
-        log_error "2. User with sudo access"
-        log_error "3. Manual installation of: python3, python3-pip, git, curl, sudo"
-        log_error ""
-        log_error "Please either:"
-        log_error "- Add your user to the sudo group: usermod -a -G sudo $USER"
-        log_error "- Run this script as root"
-        log_error "- Install the required packages manually and run again"
+        log_info "User not in sudo group. Attempting to switch to root for package installation..."
+        log_warning "You will be prompted for the root password"
+        
+        # Create a temporary script for root to execute
+        local root_script="/tmp/qyksys_install_packages_$$"
+        cat > "$root_script" << EOF
+#!/bin/bash
+set -euo pipefail
+
+echo "[INFO] Installing packages as root..."
+
+case "$os_type" in
+    "debian")
+        apt-get update
+        apt-get install -y python3 python3-pip python3-venv git curl sudo
+        ;;
+    "redhat")
+        if command -v dnf >/dev/null 2>&1; then
+            dnf install -y python3 python3-pip git curl sudo
+        else
+            yum install -y python3 python3-pip git curl sudo
+        fi
+        ;;
+    "arch")
+        pacman -S --noconfirm python python-pip git curl sudo
+        ;;
+    *)
+        echo "[ERROR] Unsupported OS for automatic package installation: $os_type"
         exit 1
+        ;;
+esac
+
+# Add user to sudo group if not already there
+if ! groups "$ORIGINAL_USER" | grep -q '\bsudo\b\|\bwheel\b'; then
+    echo "[INFO] Adding $ORIGINAL_USER to sudo group..."
+    
+    # Ensure sudo group exists
+    if ! getent group sudo >/dev/null 2>&1; then
+        groupadd sudo
+    fi
+    
+    usermod -a -G sudo "$ORIGINAL_USER"
+    
+    # For RedHat/Arch systems, also add to wheel group
+    if [[ "$os_type" == "redhat" ]] || [[ "$os_type" == "arch" ]]; then
+        if ! getent group wheel >/dev/null 2>&1; then
+            groupadd wheel
+        fi
+        usermod -a -G wheel "$ORIGINAL_USER"
+    fi
+fi
+
+echo "[SUCCESS] Package installation completed"
+rm -f "$root_script"
+EOF
+
+        chmod +x "$root_script"
+        
+        # Execute the script as root
+        if su -c "ORIGINAL_USER='$ORIGINAL_USER' '$root_script'" root; then
+            log_success "Packages installed successfully"
+            log_info "User $ORIGINAL_USER has been added to sudo group"
+            log_warning "Note: You may need to log out and back in for sudo group membership to take effect"
+            return 0
+        else
+            log_error "Failed to install packages as root"
+            rm -f "$root_script"
+            exit 1
+        fi
     fi
     return 0
 }
