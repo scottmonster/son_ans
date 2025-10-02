@@ -1,6 +1,6 @@
 #!/bin/bash
-# Bootstrap script for machine provisioning with Ansible
-# Usage: curl -sSL https://path-to-repo/bootstrap.sh | bash
+# Bootstrap script for qyksys system provisioning
+# Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 
 set -euo pipefail
 
@@ -13,8 +13,14 @@ NC='\033[0m' # No Color
 
 # Project configuration
 PROJECT_NAME="qyksys"
+REPO_URL="https://github.com/scottmonster/son_ans.git"
 LOCAL_VAULT_PASS_FILE="$HOME/.config/$PROJECT_NAME/vault_pass.txt"
 REPO_VAULT_PASS_FILE="vault/vault_pass.txt.vault"
+WORK_DIR="/tmp/qyksys-$$"
+
+# Store original user info before any privilege escalation
+ORIGINAL_USER="${SUDO_USER:-$USER}"
+ORIGINAL_HOME="${SUDO_HOME:-$HOME}"
 
 # Logging functions
 log_info() {
@@ -31,6 +37,116 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Cleanup function
+cleanup() {
+    if [[ -d "$WORK_DIR" ]]; then
+        rm -rf "$WORK_DIR"
+    fi
+}
+
+# Set trap for cleanup
+trap cleanup EXIT
+
+# Check if user has sudo access or is root
+check_privileges() {
+    if [[ $EUID -eq 0 ]]; then
+        log_info "Running as root"
+        return 0
+    elif sudo -n true 2>/dev/null; then
+        log_info "User has sudo access"
+        return 0
+    elif command -v sudo >/dev/null 2>&1; then
+        log_warning "User may need to enter password for sudo"
+        if sudo true 2>/dev/null; then
+            return 0
+        else
+            log_error "Sudo authentication failed"
+            return 1
+        fi
+    else
+        log_warning "sudo not available, will need root access for package installation"
+        return 1
+    fi
+}
+
+# Switch to root if needed, preserving original user context
+ensure_root_for_packages() {
+    if ! check_privileges; then
+        log_info "Attempting to switch to root for package installation..."
+        log_warning "You may be prompted for the root password"
+        
+        # Create a script that we can run as root
+        cat > /tmp/qyksys_root_setup.sh << 'EOF'
+#!/bin/bash
+# Root setup script for qyksys
+# This script runs package installation as root but preserves original user context
+
+ORIGINAL_USER="$1"
+ORIGINAL_HOME="$2"
+OS_TYPE="$3"
+
+install_packages() {
+    case "$OS_TYPE" in
+        "debian")
+            apt-get update
+            apt-get install -y python3 python3-pip python3-venv git sudo
+            ;;
+        "redhat")
+            if command -v dnf >/dev/null 2>&1; then
+                dnf install -y python3 python3-pip git sudo
+            else
+                yum install -y python3 python3-pip git sudo
+            fi
+            ;;
+        "arch")
+            pacman -S --noconfirm python python-pip git sudo
+            ;;
+        *)
+            echo "Unsupported OS for automatic package installation: $OS_TYPE"
+            exit 1
+            ;;
+    esac
+    
+    # Ensure sudo group exists and add original user to it
+    if ! getent group sudo >/dev/null; then
+        groupadd sudo
+    fi
+    
+    usermod -a -G sudo "$ORIGINAL_USER"
+    
+    # Configure sudo group if needed
+    if [[ "$OS_TYPE" == "redhat" ]] || [[ "$OS_TYPE" == "arch" ]]; then
+        if ! getent group wheel >/dev/null; then
+            groupadd wheel
+        fi
+        usermod -a -G wheel "$ORIGINAL_USER"
+        
+        # Enable wheel group for sudo
+        if ! grep -q "^%wheel.*NOPASSWD" /etc/sudoers; then
+            echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+        fi
+    fi
+}
+
+install_packages
+echo "Root setup completed for user: $ORIGINAL_USER"
+EOF
+
+        chmod +x /tmp/qyksys_root_setup.sh
+        
+        if su -c "/tmp/qyksys_root_setup.sh '$ORIGINAL_USER' '$ORIGINAL_HOME' '$1'" root; then
+            log_success "Root setup completed"
+            rm -f /tmp/qyksys_root_setup.sh
+            return 0
+        else
+            log_error "Failed to complete root setup"
+            rm -f /tmp/qyksys_root_setup.sh
+            return 1
+        fi
+    fi
+    return 0
 }
 
 # Detect OS
@@ -60,20 +176,31 @@ install_prerequisites() {
     
     log_info "Installing prerequisites for $os_type..."
     
+    # Check if we need to handle privilege escalation
+    if ! check_privileges && [[ "$os_type" != "macos" ]]; then
+        ensure_root_for_packages "$os_type"
+    fi
+    
     case "$os_type" in
         "debian")
-            sudo apt-get update
-            sudo apt-get install -y python3 python3-pip python3-venv git
+            if check_privileges; then
+                sudo apt-get update
+                sudo apt-get install -y python3 python3-pip python3-venv git
+            fi
             ;;
         "redhat")
-            if command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y python3 python3-pip git
-            else
-                sudo yum install -y python3 python3-pip git
+            if check_privileges; then
+                if command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y python3 python3-pip git
+                else
+                    sudo yum install -y python3 python3-pip git
+                fi
             fi
             ;;
         "arch")
-            sudo pacman -S --noconfirm python python-pip git
+            if check_privileges; then
+                sudo pacman -S --noconfirm python python-pip git
+            fi
             ;;
         "macos")
             # Assume Homebrew is available or install it
@@ -200,33 +327,46 @@ run_ansible() {
     export ANSIBLE_VAULT_PASSWORD_FILE="$LOCAL_VAULT_PASS_FILE"
     export ANSIBLE_HOST_KEY_CHECKING=False
     
+    # Ensure we're provisioning the original user, not root
+    if [[ "$ORIGINAL_USER" != "$USER" ]]; then
+        log_info "Ensuring provisioning targets original user: $ORIGINAL_USER"
+        export ANSIBLE_REMOTE_USER="$ORIGINAL_USER"
+    fi
+    
     # Run the playbook
     ansible-playbook \
         -i inventory/local \
         -e "profile=$profile" \
+        -e "target_user=$ORIGINAL_USER" \
+        -e "target_user_home=$ORIGINAL_HOME" \
         --vault-password-file="$LOCAL_VAULT_PASS_FILE" \
         site.yml
 }
 
 # Main execution
 main() {
-    log_info "Starting machine provisioning bootstrap..."
+    log_info "Starting qyksys bootstrap..."
     
     # Detect OS
     OS_TYPE=$(detect_os)
     log_info "Detected OS: $OS_TYPE"
     
-    # Check if we're in the project directory
-    if [[ ! -f "site.yml" ]] || [[ ! -d "roles" ]]; then
-        log_error "This script must be run from the project root directory"
-        log_error "Make sure you have cloned the repository and are in the correct directory"
-        exit 1
-    fi
-    
     # Install prerequisites if needed
     if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
         install_prerequisites "$OS_TYPE"
     fi
+    
+    # Clone the repository to temporary directory
+    log_info "Cloning qyksys repository..."
+    mkdir -p "$WORK_DIR"
+    if ! git clone "$REPO_URL" "$WORK_DIR"; then
+        log_error "Failed to clone repository from $REPO_URL"
+        exit 1
+    fi
+    
+    # Change to work directory
+    cd "$WORK_DIR"
+    log_success "Repository cloned to $WORK_DIR"
     
     # Install Ansible if not present
     if ! command -v ansible-playbook >/dev/null 2>&1; then
@@ -235,18 +375,20 @@ main() {
         log_info "Ansible already installed"
     fi
     
-    # Setup vault password
+    # Setup vault password (using original user's home directory)
+    LOCAL_VAULT_PASS_FILE="$ORIGINAL_HOME/.config/$PROJECT_NAME/vault_pass.txt"
     setup_vault_password
     
     # Select profile
     PROFILE=$(select_profile)
     
-    # Run Ansible
+    # Run Ansible with original user context
     run_ansible "$PROFILE"
     
-    log_success "Machine provisioning completed successfully!"
+    log_success "Qyksys provisioning completed successfully!"
     log_info "Profile: $PROFILE"
     log_info "Vault password file: $LOCAL_VAULT_PASS_FILE"
+    log_info "Temporary files will be cleaned up automatically"
 }
 
 # Run main function

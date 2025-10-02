@@ -36,7 +36,7 @@ if [[ ! -f "site.yml" ]] || [[ ! -d "roles" ]]; then
     exit 1
 fi
 
-log_info "Machine Provisioner - Initial Setup"
+log_info "Qyksys - Initial Setup"
 echo
 
 # Create vault password

@@ -2,7 +2,7 @@
 
 # Default target
 help:
-	@echo "Machine Provisioner - Available targets:"
+	@echo "Qyksys - Available targets:"
 	@echo ""
 	@echo "  install      - Run bootstrap script"
 	@echo "  personal     - Deploy personal profile"

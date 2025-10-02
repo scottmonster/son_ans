@@ -116,7 +116,7 @@ test_vault_encryption() {
 
 # Main validation
 main() {
-    log_info "Machine Provisioner - Project Validation"
+    log_info "Qyksys - Project Validation"
     echo
     
     # Test core files

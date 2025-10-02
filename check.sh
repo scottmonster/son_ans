@@ -1,7 +1,7 @@
 #!/bin/bash
 # Simple project structure validation
 
-echo "Machine Provisioner - Project Structure Check"
+echo "Qyksys - Project Structure Check"
 echo "============================================="
 
 errors=0

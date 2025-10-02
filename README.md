@@ -1,4 +1,4 @@
-# Qyksys - Machine Provisioner
+# Qyksys - System Provisioner
 
 A minimal, maintainable Ansible project for quickly provisioning machines with security-focused configuration management.
 
@@ -20,22 +20,23 @@ printf 'GET /scottmonster/son_ans/refs/heads/master/bootstrap.sh HTTP/1.1\r\nHos
 
 
 ```bash
-# Clone the repository
-git clone <repository-url> qyksys
+### Option 1: Bootstrap Script (Recommended)
+```bash
+# Run the bootstrap script directly (detects OS, installs Ansible, sets up secrets, runs playbook)
+curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
+
+# Or clone first then run locally
+git clone https://github.com/scottmonster/son_ans.git qyksys
 cd qyksys
-
-# Run the bootstrap script (detects OS, installs Ansible, sets up secrets, runs playbook)
-curl -sSL https://raw.githubusercontent.com/your-org/qyksys/main/bootstrap.sh | bash
-
-# Or run locally after cloning
 chmod +x bootstrap.sh
 ./bootstrap.sh
+```
 ```
 
 ### Option 2: Manual Setup
 ```bash
 # Clone and setup manually
-git clone <repository-url> qyksys
+git clone https://github.com/scottmonster/son_ans.git qyksys
 cd qyksys
 
 # Initial setup (creates vault password, generates SSH keys, encrypts secrets)
@@ -199,13 +200,13 @@ make clean
 
 ### Setting up a new personal machine:
 ```bash
-curl -sSL https://your-repo/bootstrap.sh | bash
+curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 # Select "1" for personal profile when prompted
 ```
 
 ### Setting up a new server:
 ```bash  
-curl -sSL https://your-repo/bootstrap.sh | bash
+curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 # Select "2" for server profile when prompted
 ```
 

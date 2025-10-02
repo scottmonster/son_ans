@@ -1,5 +1,5 @@
 ---
-- name: Machine Provisioning Playbook
+- name: Qyksys System Provisioning Playbook
   hosts: localhost
   connection: local
   gather_facts: true
@@ -58,7 +58,7 @@
     - name: Display completion summary
       debug:
         msg:
-          - "Machine provisioning completed successfully!"
+          - "Qyksys provisioning completed successfully!"
           - "Profile: {{ profile }}"
           - "Hostname: {{ ansible_hostname }}"
           - "IP Address: {{ ansible_default_ipv4.address | default('N/A') }}"
