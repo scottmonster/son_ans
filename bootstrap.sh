@@ -3,9 +3,12 @@
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 VERSION="1"
 DEBUG=true
+
 set -euo pipefail
 
+
 if [[ -n "${DEBUG:-}" ]]; then
+  echo "turning on debug"
   # Enable per-command timing (Bash 5.1+). Ignore if unsupported.
   if shopt -q xtrace-time 2>/dev/null; then
     shopt -s xtrace-time
@@ -14,7 +17,8 @@ if [[ -n "${DEBUG:-}" ]]; then
   fi
 
   # Trace prefix: time file:line:function
-  export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}] '
+  # export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}] '
+  export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}] '
 
   # Turn on xtrace
   set -x
