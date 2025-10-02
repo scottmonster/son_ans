@@ -2,7 +2,7 @@
 # Bootstrap script for qyksys system provisioning
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 
-VERSION="3"
+VERSION="4"
 DEBUG=true
 
 set -euo pipefail
@@ -138,11 +138,11 @@ if ! groups "$ORIGINAL_USER" | grep -q '\bsudo\b\|\bwheel\b'; then
     echo "[INFO] Adding $ORIGINAL_USER to sudo group..."
     
     # Ensure sudo group exists
-    if ! /usr/bin/getent group sudo >/dev/null 2>&1; then
-        /usr/sbin/groupadd sudo
+    if ! getent group sudo >/dev/null 2>&1; then
+        groupadd sudo
     fi
     
-    /usr/sbin/usermod -a -G sudo "$ORIGINAL_USER"
+    usermod -a -G sudo "$ORIGINAL_USER"
     
     # Ensure sudo group has proper permissions
     if ! grep -q "^%sudo" /etc/sudoers; then
@@ -151,10 +151,10 @@ if ! groups "$ORIGINAL_USER" | grep -q '\bsudo\b\|\bwheel\b'; then
     
     # For RedHat/Arch systems, also add to wheel group
     if [[ "$os_type" == "redhat" ]] || [[ "$os_type" == "arch" ]]; then
-        if ! /usr/bin/getent group wheel >/dev/null 2>&1; then
-            /usr/sbin/groupadd wheel
+        if ! getent group wheel >/dev/null 2>&1; then
+            groupadd wheel
         fi
-        /usr/sbin/usermod -a -G wheel "$ORIGINAL_USER"
+        usermod -a -G wheel "$ORIGINAL_USER"
         
         # Ensure wheel group has proper permissions
         if ! grep -q "^%wheel" /etc/sudoers; then
@@ -178,7 +178,7 @@ EOF
         
         # Execute the script as root with proper interactive terminal
         log_info "Switching to root for package installation..."
-        if su -c "ORIGINAL_USER='$ORIGINAL_USER' '$root_script'" root < /dev/tty; then
+        if su - -c "ORIGINAL_USER='$ORIGINAL_USER' '$root_script'" root < /dev/tty; then
             log_success "Packages installed successfully"
             log_info "User $ORIGINAL_USER has been added to sudo group"
             log_warning "Note: You may need to log out and back in for sudo group membership to take effect"
