@@ -18,7 +18,7 @@ if [[ -n "${DEBUG:-}" ]]; then
 
   # Trace prefix: time file:line:function
   # export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}] '
-  export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}] '
+  export PS4='+ [line:${LINENO}] '
 
   # Turn on xtrace
   set -x
