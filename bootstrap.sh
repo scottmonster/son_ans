@@ -8,28 +8,28 @@ DEBUG=true
 
 
 # Logging functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+# log_info() {
+#     echo -e "${BLUE}[INFO]${NC} $1"
+# }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# log_success() {
+#     echo -e "${GREEN}[SUCCESS]${NC} $1"
+# }
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+# log_warning() {
+#     echo -e "${YELLOW}[WARNING]${NC} $1"
+# }
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# log_error() {
+#     echo -e "${RED}[ERROR]${NC} $1"
+# }
 
-# Cleanup function
-cleanup() {
-    if [[ -d "$WORK_DIR" ]]; then
-        rm -rf "$WORK_DIR"
-    fi
-}
+# # Cleanup function
+# cleanup() {
+#     if [[ -d "$WORK_DIR" ]]; then
+#         rm -rf "$WORK_DIR"
+#     fi
+# }
 
 # Set trap for cleanup
 trap cleanup EXIT
