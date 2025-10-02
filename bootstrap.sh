@@ -54,19 +54,26 @@ check_privileges() {
     if [[ $EUID -eq 0 ]]; then
         log_info "Running as root"
         return 0
-    elif sudo -n true 2>/dev/null; then
-        log_info "User has sudo access"
-        return 0
-    elif command -v sudo >/dev/null 2>&1; then
-        log_warning "User may need to enter password for sudo"
-        if sudo true 2>/dev/null; then
+    elif groups "$USER" | grep -q '\bsudo\b\|\bwheel\b'; then
+        # User is in sudo/wheel group, test sudo access
+        if sudo -n true 2>/dev/null; then
+            log_info "User has passwordless sudo access"
             return 0
+        elif command -v sudo >/dev/null 2>&1; then
+            log_info "User is in sudo group, testing sudo access..."
+            if sudo true 2>/dev/null; then
+                log_info "User has sudo access"
+                return 0
+            else
+                log_error "Sudo authentication failed"
+                return 1
+            fi
         else
-            log_error "Sudo authentication failed"
+            log_warning "sudo command not available"
             return 1
         fi
     else
-        log_warning "sudo not available, will need root access for package installation"
+        log_info "User not in sudo/wheel group, will need root access for package installation"
         return 1
     fi
 }
@@ -74,77 +81,16 @@ check_privileges() {
 # Switch to root if needed, preserving original user context
 ensure_root_for_packages() {
     if ! check_privileges; then
-        log_info "Attempting to switch to root for package installation..."
-        log_warning "You may be prompted for the root password"
-        
-        # Create a script that we can run as root
-        cat > /tmp/qyksys_root_setup.sh << 'EOF'
-#!/bin/bash
-# Root setup script for qyksys
-# This script runs package installation as root but preserves original user context
-
-ORIGINAL_USER="$1"
-ORIGINAL_HOME="$2"
-OS_TYPE="$3"
-
-install_packages() {
-    case "$OS_TYPE" in
-        "debian")
-            apt-get update
-            apt-get install -y python3 python3-pip python3-venv git sudo
-            ;;
-        "redhat")
-            if command -v dnf >/dev/null 2>&1; then
-                dnf install -y python3 python3-pip git sudo
-            else
-                yum install -y python3 python3-pip git sudo
-            fi
-            ;;
-        "arch")
-            pacman -S --noconfirm python python-pip git sudo
-            ;;
-        *)
-            echo "Unsupported OS for automatic package installation: $OS_TYPE"
-            exit 1
-            ;;
-    esac
-    
-    # Ensure sudo group exists and add original user to it
-    if ! getent group sudo >/dev/null; then
-        groupadd sudo
-    fi
-    
-    usermod -a -G sudo "$ORIGINAL_USER"
-    
-    # Configure sudo group if needed
-    if [[ "$OS_TYPE" == "redhat" ]] || [[ "$OS_TYPE" == "arch" ]]; then
-        if ! getent group wheel >/dev/null; then
-            groupadd wheel
-        fi
-        usermod -a -G wheel "$ORIGINAL_USER"
-        
-        # Enable wheel group for sudo
-        if ! grep -q "^%wheel.*NOPASSWD" /etc/sudoers; then
-            echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-        fi
-    fi
-}
-
-install_packages
-echo "Root setup completed for user: $ORIGINAL_USER"
-EOF
-
-        chmod +x /tmp/qyksys_root_setup.sh
-        
-        if su -c "/tmp/qyksys_root_setup.sh '$ORIGINAL_USER' '$ORIGINAL_HOME' '$1'" root; then
-            log_success "Root setup completed"
-            rm -f /tmp/qyksys_root_setup.sh
-            return 0
-        else
-            log_error "Failed to complete root setup"
-            rm -f /tmp/qyksys_root_setup.sh
-            return 1
-        fi
+        log_error "This script requires either:"
+        log_error "1. Running as root"
+        log_error "2. User with sudo access"
+        log_error "3. Manual installation of: python3, python3-pip, git, curl, sudo"
+        log_error ""
+        log_error "Please either:"
+        log_error "- Add your user to the sudo group: usermod -a -G sudo $USER"
+        log_error "- Run this script as root"
+        log_error "- Install the required packages manually and run again"
+        exit 1
     fi
     return 0
 }
@@ -185,21 +131,21 @@ install_prerequisites() {
         "debian")
             if check_privileges; then
                 sudo apt-get update
-                sudo apt-get install -y python3 python3-pip python3-venv git
+                sudo apt-get install -y python3 python3-pip python3-venv git curl
             fi
             ;;
         "redhat")
             if check_privileges; then
                 if command -v dnf >/dev/null 2>&1; then
-                    sudo dnf install -y python3 python3-pip git
+                    sudo dnf install -y python3 python3-pip git curl
                 else
-                    sudo yum install -y python3 python3-pip git
+                    sudo yum install -y python3 python3-pip git curl
                 fi
             fi
             ;;
         "arch")
             if check_privileges; then
-                sudo pacman -S --noconfirm python python-pip git
+                sudo pacman -S --noconfirm python python-pip git curl
             fi
             ;;
         "macos")
@@ -208,7 +154,7 @@ install_prerequisites() {
                 log_info "Installing Homebrew..."
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
-            brew install python git
+            brew install python git curl
             ;;
         "windows")
             log_error "Windows support requires manual Python and Git installation"
@@ -352,7 +298,7 @@ main() {
     log_info "Detected OS: $OS_TYPE"
     
     # Install prerequisites if needed
-    if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+    if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
         install_prerequisites "$OS_TYPE"
     fi
     
