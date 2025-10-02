@@ -20,7 +20,7 @@ if [[ -n "${DEBUG:-}" ]]; then
   set -x
 fi
 
-
+echo "Running qyksys bootstrap version $VERSION"
 
 # Colors for output
 RED='\033[0;31m'
