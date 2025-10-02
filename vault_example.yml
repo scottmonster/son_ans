@@ -1,0 +1,29 @@
+# Example Vault File
+# This file shows the structure of secrets that should be stored in group_vars/all/vault.yml
+# To edit the actual vault file, run: make vault-edit
+
+# SSH private key (ed25519 format)
+# Replace this with your actual private key content
+ssh_private_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAFwAAAAdzc2gtcn
+  ...YOUR ACTUAL PRIVATE KEY CONTENT HERE...
+  -----END OPENSSH PRIVATE KEY-----
+
+# Additional secrets can be added here:
+
+# Example database password
+# database_password: "your-secret-database-password"
+
+# Example API key
+# api_key: "your-secret-api-key"
+
+# Example service tokens
+# github_token: "ghp_xxxxxxxxxxxxxxxxxxxx"
+# docker_registry_password: "your-registry-password"
+
+# Notes:
+# - All values in this file will be encrypted with ansible-vault
+# - Use ansible-vault edit to modify this file safely
+# - Never commit unencrypted secrets to version control
+# - The vault password should be stored locally at ~/.config/qyksys/vault_pass.txt

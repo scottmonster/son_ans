@@ -1,0 +1,78 @@
+---
+- name: Install sudo package (Debian/Ubuntu)
+  package:
+    name: sudo
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install sudo package (RedHat/CentOS/Fedora)
+  package:
+    name: sudo
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install sudo package (Arch Linux)
+  package:
+    name: sudo
+    state: present
+  become: yes
+  when: ansible_os_family == "Archlinux"
+
+- name: Ensure sudo group exists
+  group:
+    name: sudo
+    state: present
+  become: yes
+  when: ansible_os_family != "Darwin"
+
+- name: Ensure wheel group exists (RedHat/Arch)
+  group:
+    name: wheel
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat" or ansible_os_family == "Archlinux"
+
+- name: Add user to sudo group (Debian/Ubuntu)
+  user:
+    name: "{{ target_user }}"
+    groups: sudo
+    append: yes
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Add user to wheel group (RedHat/Arch)
+  user:
+    name: "{{ target_user }}"
+    groups: wheel
+    append: yes
+  become: yes
+  when: ansible_os_family == "RedHat" or ansible_os_family == "Archlinux"
+
+- name: Add user to admin group (macOS)
+  user:
+    name: "{{ target_user }}"
+    groups: admin
+    append: yes
+  become: yes
+  when: ansible_os_family == "Darwin"
+
+- name: Configure sudo without password for wheel group (RedHat/Arch)
+  lineinfile:
+    path: /etc/sudoers
+    regexp: '^%wheel\s+ALL=\(ALL\)\s+NOPASSWD:\s+ALL'
+    line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+    validate: '/usr/sbin/visudo -cf %s'
+  become: yes
+  when: ansible_os_family == "RedHat" or ansible_os_family == "Archlinux"
+
+- name: Verify sudo access
+  command: sudo -n true
+  register: sudo_test
+  failed_when: false
+  changed_when: false
+
+- name: Display sudo status
+  debug:
+    msg: "Sudo access: {{ 'GRANTED' if sudo_test.rc == 0 else 'DENIED - You may need to log out and back in' }}"

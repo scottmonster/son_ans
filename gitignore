@@ -1,0 +1,45 @@
+# Sensitive files - never commit these
+*.backup
+*.bak
+*.tmp
+
+# Local vault password files (should be stored locally only)
+vault_pass.txt
+!vault/vault_pass.txt.vault
+
+# SSH keys (unencrypted)
+id_rsa*
+id_ed25519
+id_ecdsa*
+*.pem
+*.key
+
+# Ansible temporary files
+*.retry
+.ansible/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env

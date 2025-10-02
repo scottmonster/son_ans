@@ -1,0 +1,55 @@
+---
+- name: Update package cache (Debian/Ubuntu)
+  package:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+  when: ansible_os_family == "Debian"
+  
+- name: Update package cache (RedHat/CentOS/Fedora)
+  package:
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Update package cache (Arch Linux)
+  pacman:
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == "Archlinux"
+
+- name: Install common packages (Linux)
+  package:
+    name: "{{ packages.common + packages[ansible_os_family|lower] | default([]) }}"
+    state: present
+  become: yes
+  when: ansible_os_family != "Darwin" and ansible_os_family != "Windows"
+
+- name: Install common packages (macOS)
+  homebrew:
+    name: "{{ packages.common + packages.macos }}"
+    state: present
+  when: ansible_os_family == "Darwin"
+
+- name: Ensure user home directory exists
+  file:
+    path: "{{ target_user_home }}"
+    state: directory
+    owner: "{{ target_user }}"
+    mode: '0755'
+  become: yes
+
+- name: Create .ssh directory
+  file:
+    path: "{{ ssh_directory }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0700'
+
+- name: Display system information
+  debug:
+    msg:
+      - "Target user: {{ target_user }}"
+      - "Home directory: {{ target_user_home }}"
+      - "SSH directory: {{ ssh_directory }}"

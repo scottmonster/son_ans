@@ -1,0 +1,92 @@
+---
+- name: Install SSH server (Debian/Ubuntu)
+  package:
+    name: openssh-server
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install SSH server (RedHat/CentOS/Fedora)
+  package:
+    name: openssh-server
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install SSH server (Arch Linux)
+  package:
+    name: openssh
+    state: present
+  become: yes
+  when: ansible_os_family == "Archlinux"
+
+- name: Enable SSH service (Linux)
+  service:
+    name: "{{ ssh_service_name }}"
+    state: started
+    enabled: yes
+  become: yes
+  when: ansible_os_family != "Darwin"
+  vars:
+    ssh_service_name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+
+- name: Enable SSH service (macOS)
+  command: sudo systemsetup -setremotelogin on
+  become: yes
+  when: ansible_os_family == "Darwin"
+
+- name: Ensure authorized_keys file exists
+  file:
+    path: "{{ ssh_authorized_keys_path }}"
+    state: touch
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+
+- name: Decrypt SSH public key
+  set_fact:
+    decrypted_public_key: "{{ lookup('file', 'vault/ssh_public_key.txt.vault') | vault }}"
+  no_log: true
+
+- name: Add SSH public key to authorized_keys
+  lineinfile:
+    path: "{{ ssh_authorized_keys_path }}"
+    line: "{{ decrypted_public_key }}"
+    state: present
+    create: yes
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+
+- name: Configure SSH server security settings
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: yes
+  become: yes
+  loop:
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^#?Port', line: 'Port 22' }
+  notify: restart ssh
+
+- name: Validate SSH configuration
+  command: sshd -t
+  become: yes
+  changed_when: false
+
+- name: Get SSH service status
+  service_facts:
+  when: ansible_os_family != "Darwin"
+
+- name: Display SSH server status
+  debug:
+    msg:
+      - "SSH server installed and configured"
+      - "Authorized keys file: {{ ssh_authorized_keys_path }}"
+      - "Service status: {{ ansible_facts.services[ssh_service_name].state | default('unknown') }}"
+      - "Configuration: Password auth disabled, public key auth enabled"
+  vars:
+    ssh_service_name: "{{ 'ssh.service' if ansible_os_family == 'Debian' else 'sshd.service' }}"

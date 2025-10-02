@@ -1,0 +1,73 @@
+---
+# Non-sensitive configuration variables
+
+# Project configuration
+project_name: qyksys
+vault_password_file: "{{ ansible_env.HOME }}/.config/{{ project_name }}/vault_pass.txt"
+
+# User configuration
+target_user: "{{ ansible_user_id }}"
+target_user_home: "{{ ansible_env.HOME }}"
+
+# SSH configuration
+ssh_key_type: ed25519
+ssh_key_comment: "{{ target_user }}@{{ ansible_hostname }}"
+ssh_directory: "{{ target_user_home }}/.ssh"
+ssh_private_key_path: "{{ ssh_directory }}/id_ed25519"
+ssh_public_key_path: "{{ ssh_directory }}/id_ed25519.pub"
+ssh_authorized_keys_path: "{{ ssh_directory }}/authorized_keys"
+
+# UFW firewall rules
+ufw_rules:
+  - rule: limit
+    port: 22
+    proto: tcp
+    comment: "SSH rate limiting"
+  - rule: allow
+    port: 80
+    proto: tcp
+    comment: "HTTP"
+  - rule: allow
+    port: 443
+    proto: tcp
+    comment: "HTTPS"
+
+ufw_defaults:
+  incoming: deny
+  outgoing: allow
+  forward: deny
+
+# Zsh configuration
+zsh_theme: "robbyrussell"
+zsh_plugins:
+  - git
+  - sudo
+  - history
+  - command-not-found
+
+# Package management
+packages:
+  common:
+    - curl
+    - wget
+    - git
+    - vim
+    - htop
+    - tree
+  
+  debian:
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - lsb-release
+  
+  redhat:
+    - epel-release
+    - yum-utils
+  
+  arch:
+    - base-devel
+  
+  macos:
+    - coreutils
+    - findutils

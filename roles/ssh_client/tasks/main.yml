@@ -1,0 +1,87 @@
+---
+- name: Install SSH client (Debian/Ubuntu)
+  package:
+    name: openssh-client
+    state: present
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install SSH client (RedHat/CentOS/Fedora)
+  package:
+    name: openssh-clients
+    state: present
+  become: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install SSH client (Arch Linux)
+  package:
+    name: openssh
+    state: present
+  become: yes
+  when: ansible_os_family == "Archlinux"
+
+- name: Ensure SSH client is available (macOS)
+  command: which ssh
+  register: ssh_available
+  changed_when: false
+  when: ansible_os_family == "Darwin"
+
+- name: Backup existing SSH private key
+  copy:
+    src: "{{ ssh_private_key_path }}"
+    dest: "{{ ssh_private_key_path }}.backup"
+    remote_src: yes
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0600'
+  when: existing_private_key.stat.exists | default(false)
+  vars:
+    existing_private_key: "{{ ansible_stat_private_key | default({'stat': {'exists': false}}) }}"
+
+- name: Check if SSH private key exists
+  stat:
+    path: "{{ ssh_private_key_path }}"
+  register: ansible_stat_private_key
+
+- name: Deploy SSH private key
+  copy:
+    content: "{{ ssh_private_key }}"
+    dest: "{{ ssh_private_key_path }}"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0600'
+  no_log: true
+
+- name: Decrypt SSH public key
+  set_fact:
+    decrypted_public_key: "{{ lookup('file', 'vault/ssh_public_key.txt.vault') | vault }}"
+  no_log: true
+
+- name: Deploy SSH public key
+  copy:
+    content: "{{ decrypted_public_key }}"
+    dest: "{{ ssh_public_key_path }}"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+
+- name: Set SSH directory permissions
+  file:
+    path: "{{ ssh_directory }}"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0700'
+    state: directory
+
+- name: Test SSH key pair
+  command: ssh-keygen -y -f {{ ssh_private_key_path }}
+  register: public_key_test
+  changed_when: false
+  failed_when: false
+
+- name: Display SSH client setup status
+  debug:
+    msg:
+      - "SSH private key: {{ ssh_private_key_path }}"
+      - "SSH public key: {{ ssh_public_key_path }}"
+      - "Key pair test: {{ 'PASSED' if public_key_test.rc == 0 else 'FAILED' }}"

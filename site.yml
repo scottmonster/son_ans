@@ -1,0 +1,69 @@
+---
+- name: Machine Provisioning Playbook
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  
+  vars:
+    # Default profile if not specified
+    profile: "{{ profile | default('personal') }}"
+  
+  pre_tasks:
+    - name: Validate profile selection
+      assert:
+        that:
+          - profile in ['personal', 'server']
+        fail_msg: "Invalid profile '{{ profile }}'. Must be 'personal' or 'server'"
+        success_msg: "Using profile: {{ profile }}"
+      
+    - name: Display system information
+      debug:
+        msg:
+          - "Operating System: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "Profile: {{ profile }}"
+          - "User: {{ ansible_user_id }}"
+
+  roles:
+    # Common role for all profiles
+    - role: common
+      tags: [common, always]
+    
+    # Sudo setup for all profiles
+    - role: sudo
+      tags: [sudo]
+      when: ansible_os_family != "Windows"
+    
+    # UFW firewall for all profiles (Linux only)
+    - role: ufw
+      tags: [ufw, firewall]
+      when: ansible_os_family == "Debian" or ansible_os_family == "RedHat" or ansible_os_family == "Archlinux"
+    
+    # Zsh for all profiles
+    - role: zsh
+      tags: [zsh, shell]
+      when: ansible_os_family != "Windows"
+    
+    # SSH client setup for personal profile
+    - role: ssh_client
+      tags: [ssh, ssh_client]
+      when: profile == "personal"
+    
+    # SSH server setup for server profile
+    - role: ssh_server
+      tags: [ssh, ssh_server]
+      when: profile == "server" and ansible_os_family != "Windows"
+
+  post_tasks:
+    - name: Display completion summary
+      debug:
+        msg:
+          - "Machine provisioning completed successfully!"
+          - "Profile: {{ profile }}"
+          - "Hostname: {{ ansible_hostname }}"
+          - "IP Address: {{ ansible_default_ipv4.address | default('N/A') }}"
+          - ""
+          - "Next steps:"
+          - "  - Log out and back in to apply shell changes"
+          - "  - Verify SSH key placement in ~/.ssh/"
+          - "  - Check firewall status with: sudo ufw status"

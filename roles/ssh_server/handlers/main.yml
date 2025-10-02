@@ -1,0 +1,8 @@
+---
+- name: restart ssh
+  service:
+    name: "{{ ssh_service_name }}"
+    state: restarted
+  become: yes
+  vars:
+    ssh_service_name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"

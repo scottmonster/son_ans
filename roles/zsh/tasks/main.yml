@@ -1,0 +1,79 @@
+---
+- name: Install Zsh (Linux)
+  package:
+    name: zsh
+    state: present
+  become: yes
+  when: ansible_os_family != "Darwin" and ansible_os_family != "Windows"
+
+- name: Install Zsh (macOS)
+  homebrew:
+    name: zsh
+    state: present
+  when: ansible_os_family == "Darwin"
+
+- name: Get current shell
+  command: echo $SHELL
+  register: current_shell
+  changed_when: false
+
+- name: Get Zsh path
+  command: which zsh
+  register: zsh_path
+  changed_when: false
+  when: ansible_os_family != "Windows"
+
+- name: Add Zsh to /etc/shells
+  lineinfile:
+    path: /etc/shells
+    line: "{{ zsh_path.stdout }}"
+    state: present
+  become: yes
+  when: ansible_os_family != "Windows" and ansible_os_family != "Darwin"
+
+- name: Change user shell to Zsh
+  user:
+    name: "{{ target_user }}"
+    shell: "{{ zsh_path.stdout }}"
+  become: yes
+  when: ansible_os_family != "Windows" and current_shell.stdout != zsh_path.stdout
+
+- name: Install Oh My Zsh
+  git:
+    repo: https://github.com/ohmyzsh/ohmyzsh.git
+    dest: "{{ target_user_home }}/.oh-my-zsh"
+    depth: 1
+  become_user: "{{ target_user }}"
+
+- name: Backup existing .zshrc
+  copy:
+    src: "{{ target_user_home }}/.zshrc"
+    dest: "{{ target_user_home }}/.zshrc.backup"
+    remote_src: yes
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+  when: ansible_stat_result.stat.exists | default(false)
+  vars:
+    ansible_stat_result: "{{ ansible_stat_zshrc | default({'stat': {'exists': false}}) }}"
+
+- name: Check if .zshrc exists
+  stat:
+    path: "{{ target_user_home }}/.zshrc"
+  register: ansible_stat_zshrc
+
+- name: Deploy .zshrc configuration
+  copy:
+    src: zshrc
+    dest: "{{ target_user_home }}/.zshrc"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+    backup: yes
+
+- name: Display shell information
+  debug:
+    msg:
+      - "Current shell: {{ current_shell.stdout }}"
+      - "Zsh path: {{ zsh_path.stdout | default('N/A') }}"
+      - "Shell change: {{ 'Required - please log out and back in' if current_shell.stdout != zsh_path.stdout else 'Not needed' }}"
