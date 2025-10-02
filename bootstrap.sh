@@ -145,21 +145,28 @@ main() {
   OS_TYPE=$(detect_os)
   log_info "Detected OS: $OS_TYPE"
 
-  if command -v sudo >/dev/null 2>&1; then
-    echo "sudo found"
+  # if command -v sudo >/dev/null 2>&1; then
+  #   echo "sudo found"
+  # else
+  #   echo "sudo not found"
+  # fi
+
+  # if id -nG "${USER:-$(id -un)}" 2>/dev/null | grep -qx "sudo"; then
+  #   echo "user is in the sudo group"
+  # else
+  #   echo "user is not in the sudo group"
+  # fi
+
+
+  if ! sudo -v; then
+    echo "sudo not usable (validation failed)"
+    echo "calling ensure_sudo"
+    # do something (fallback, exit, etc.)
+    ensure_sudo
   else
-    echo "sudo not found"
+    echo "sudo is usable"
   fi
 
-  if id -nG "${USER:-$(id -un)}" 2>/dev/null | grep -qx "sudo"; then
-    echo "user is in the sudo group"
-  else
-    echo "user is not in the sudo group"
-  fi
-
-  echo "calling ensure_sudo"
-
-  ensure_sudo
 
   exit 0
 
