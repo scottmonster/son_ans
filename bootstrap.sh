@@ -2,7 +2,7 @@
 # Bootstrap script for qyksys system provisioning
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
 
-VERSION="2"
+VERSION="3"
 DEBUG=true
 
 set -euo pipefail
@@ -138,18 +138,28 @@ if ! groups "$ORIGINAL_USER" | grep -q '\bsudo\b\|\bwheel\b'; then
     echo "[INFO] Adding $ORIGINAL_USER to sudo group..."
     
     # Ensure sudo group exists
-    if ! getent group sudo >/dev/null 2>&1; then
-        groupadd sudo
+    if ! /usr/bin/getent group sudo >/dev/null 2>&1; then
+        /usr/sbin/groupadd sudo
     fi
     
-    usermod -a -G sudo "$ORIGINAL_USER"
+    /usr/sbin/usermod -a -G sudo "$ORIGINAL_USER"
+    
+    # Ensure sudo group has proper permissions
+    if ! grep -q "^%sudo" /etc/sudoers; then
+        echo "%sudo ALL=(ALL:ALL) ALL" >> /etc/sudoers
+    fi
     
     # For RedHat/Arch systems, also add to wheel group
     if [[ "$os_type" == "redhat" ]] || [[ "$os_type" == "arch" ]]; then
-        if ! getent group wheel >/dev/null 2>&1; then
-            groupadd wheel
+        if ! /usr/bin/getent group wheel >/dev/null 2>&1; then
+            /usr/sbin/groupadd wheel
         fi
-        usermod -a -G wheel "$ORIGINAL_USER"
+        /usr/sbin/usermod -a -G wheel "$ORIGINAL_USER"
+        
+        # Ensure wheel group has proper permissions
+        if ! grep -q "^%wheel" /etc/sudoers; then
+            echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+        fi
     fi
 fi
 
