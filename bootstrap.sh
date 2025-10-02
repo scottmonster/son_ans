@@ -1,8 +1,26 @@
 #!/bin/bash
 # Bootstrap script for qyksys system provisioning
 # Usage: curl -sSL https://raw.githubusercontent.com/scottmonster/son_ans/refs/heads/master/bootstrap.sh | bash
-
+VERSION="1"
+DEBUG=true
 set -euo pipefail
+
+if [[ -n "${DEBUG:-}" ]]; then
+  # Enable per-command timing (Bash 5.1+). Ignore if unsupported.
+  if shopt -q xtrace-time 2>/dev/null; then
+    shopt -s xtrace-time
+  else
+    set -o xtrace-time 2>/dev/null || true
+  fi
+
+  # Trace prefix: time file:line:function
+  export PS4='+ [${EPOCHREALTIME} ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}] '
+
+  # Turn on xtrace
+  set -x
+fi
+
+
 
 # Colors for output
 RED='\033[0;31m'
